@@ -26,7 +26,7 @@
 <div id="top"><div id="clock"></div><div id="date"></div></div>
 <div id="msg">Loading…</div>
 <div id="row"></div>
-<div id="hint"><span class="dot" style="background:#e33;margin-left:0"></span>Reload</div>
+<div id="hint"><span class="dot" style="background:#e33;margin-left:0"></span>Reload<span style="margin-left:2.5vw">BACK</span> TizenBrew</div>
 <script>
 (function () {
   'use strict';
@@ -107,6 +107,17 @@
     if (!m.evaluateScriptOnDocumentStart) location.href = m.appPath;
   }
 
+  // TizenBrew's home always sits under us in history (autolaunch or manual
+  // launch both navigate from it). Autolaunch only fires on app start, so
+  // going back to it won't bounce us straight here again.
+  function toTizenBrew() {
+    if (history.length > 1) return history.back();
+    try {
+      var pkg = tizen.application.getAppInfo().packageId;
+      location.href = 'file:///opt/usr/apps/' + pkg + '/res/wgt/tizenbrew-ui/dist/index.html';
+    } catch (e) {}
+  }
+
   function connect() {
     ws = new WebSocket('ws://localhost:8081');
     ws.onopen = function () { send(EV.GetModules); };
@@ -139,9 +150,7 @@
       case KEY.RIGHT: setFocus(focus + 1); break;
       case KEY.ENTER: if (modules[focus]) launch(modules[focus]); break;
       case KEY.RED: location.reload(); break;
-      case KEY.BACK:
-        try { tizen.application.getCurrentApplication().exit(); } catch (err) {}
-        break;
+      case KEY.BACK: toTizenBrew(); break;
       default: return;
     }
     e.preventDefault();
