@@ -26,14 +26,14 @@
 <div id="top"><div id="clock"></div><div id="date"></div></div>
 <div id="msg">Loading…</div>
 <div id="row"></div>
-<div id="hint"><span class="dot" style="background:#e33;margin-left:0"></span>Reload<span style="margin-left:2.5vw">BACK</span> TizenBrew</div>
+<div id="hint"><span class="dot" style="background:#e33;margin-left:0"></span>Reload<span class="dot" style="background:#f5b800"></span>TizenBrew</div>
 <script>
 (function () {
   'use strict';
 
   // TizenBrew service events (tizenbrew-app/.../wsCommunication.js)
   var EV = { Ready: -1, GetModules: 4, LaunchModule: 5, Error: 8 };
-  var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, ENTER: 13, BACK: 10009, RED: 403 };
+  var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, ENTER: 13, BACK: 10009, RED: 403, YELLOW: 405 };
 
   var row = document.getElementById('row');
   var msg = document.getElementById('msg');
@@ -150,7 +150,10 @@
       case KEY.RIGHT: setFocus(focus + 1); break;
       case KEY.ENTER: if (modules[focus]) launch(modules[focus]); break;
       case KEY.RED: location.reload(); break;
-      case KEY.BACK: toTizenBrew(); break;
+      case KEY.YELLOW: toTizenBrew(); break;
+      case KEY.BACK:
+        try { tizen.application.getCurrentApplication().exit(); } catch (err) {}
+        break;
       default: return;
     }
     e.preventDefault();

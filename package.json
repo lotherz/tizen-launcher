@@ -1,7 +1,7 @@
 {
   "name": "tizen-launcher",
   "appName": "Launcher",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Clean, fast, remote-first home screen for TizenBrew.",
   "packageType": "app",
   "appPath": "app/index.html",
