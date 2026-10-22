@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Launcher</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0b0c; color: #f2f2f0; overflow: hidden;
+    font-family: "Samsung One", "SamsungOne", "Helvetica Neue", Arial, sans-serif; }
+  #top { position: absolute; left: 6vw; right: 6vw; top: 7vh; display: flex; justify-content: space-between; align-items: baseline; }
+  #clock { font-size: 5.5vw; font-weight: 300; letter-spacing: -0.02em; }
+  #date { font-size: 1.6vw; color: #8a8a88; }
+  #row { position: absolute; left: 6vw; right: 6vw; top: 40vh; display: flex; }
+  .tile { width: 17vw; height: 17vw; margin-right: 2vw; border-radius: 1.4vw; background: #1a1a1c;
+    display: flex; flex-direction: column; justify-content: flex-end; padding: 1.6vw; box-sizing: border-box;
+    -webkit-transition: -webkit-transform 120ms ease-out, background 120ms; transition: transform 120ms ease-out, background 120ms; }
+  .tile .mono { font-size: 6vw; font-weight: 700; line-height: 1; margin-bottom: auto; color: #3a3a3c; }
+  .tile .name { font-size: 1.9vw; font-weight: 600; }
+  .tile.focus { background: #f2f2f0; color: #0b0b0c; -webkit-transform: scale(1.08); transform: scale(1.08); }
+  .tile.focus .mono { color: #0b0b0c; }
+  #msg { position: absolute; left: 6vw; top: 40vh; font-size: 2.2vw; color: #8a8a88; }
+  #hint { position: absolute; left: 6vw; bottom: 6vh; font-size: 1.3vw; color: #5a5a58; }
+  .dot { display: inline-block; width: 1vw; height: 1vw; border-radius: 50%; margin: 0 0.5vw 0 1.5vw; vertical-align: -0.1vw; }
+</style>
+</head>
+<body>
+<div id="top"><div id="clock"></div><div id="date"></div></div>
+<div id="msg">Loading…</div>
+<div id="row"></div>
+<div id="hint"><span class="dot" style="background:#e33;margin-left:0"></span>Reload</div>
+<script>
+(function () {
+  'use strict';
+
+  // TizenBrew service events (tizenbrew-app/.../wsCommunication.js)
+  var EV = { Ready: -1, GetModules: 4, LaunchModule: 5, Error: 8 };
+  var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, ENTER: 13, BACK: 10009, RED: 403 };
+
+  var row = document.getElementById('row');
+  var msg = document.getElementById('msg');
+  var modules = [];
+  var focus = 0;
+  var ws = null;
+
+  function store(k, v) {
+    try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; }
+  }
+
+  function tick() {
+    var d = new Date();
+    var h = d.getHours(), m = d.getMinutes();
+    document.getElementById('clock').textContent = h + ':' + (m < 10 ? '0' : '') + m;
+    document.getElementById('date').textContent = d.toDateString();
+  }
+  tick();
+  setInterval(tick, 10000);
+
+  try {
+    var keys = ['ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue'];
+    for (var i = 0; i < keys.length; i++) tizen.tvinputdevice.registerKey(keys[i]);
+  } catch (e) {}
+
+  function render() {
+    var self = location.href.split('?')[0].split('#')[0];
+    modules = modules.filter(function (m) { return m.appPath && m.appPath !== self; });
+    row.innerHTML = '';
+    if (!modules.length) { msg.textContent = 'No modules installed.'; return; }
+    msg.style.display = 'none';
+    for (var i = 0; i < modules.length; i++) {
+      var t = document.createElement('div');
+      t.className = 'tile';
+      var mono = document.createElement('div');
+      mono.className = 'mono';
+      mono.textContent = (modules[i].appName || '?').charAt(0);
+      var name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = modules[i].appName;
+      t.appendChild(mono);
+      t.appendChild(name);
+      row.appendChild(t);
+    }
+    var saved = parseInt(store('launcher.focus'), 10);
+    setFocus(saved >= 0 && saved < modules.length ? saved : 0);
+  }
+
+  function setFocus(i) {
+    var tiles = row.children;
+    if (!tiles.length) return;
+    if (i < 0) i = 0;
+    if (i > tiles.length - 1) i = tiles.length - 1;
+    if (tiles[focus]) tiles[focus].className = 'tile';
+    focus = i;
+    tiles[focus].className = 'tile focus';
+  }
+
+  function send(type, payload) {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: type, payload: payload }));
+  }
+
+  function launch(m) {
+    store('launcher.focus', String(focus));
+    try {
+      for (var i = 0; i < m.keys.length; i++) tizen.tvinputdevice.registerKey(m.keys[i]);
+    } catch (e) {}
+    // Same sequence as TizenBrew's own home: tell the service, then navigate.
+    // The service's debugger injects mods on the next page's context.
+    send(EV.LaunchModule, m);
+    if (!m.evaluateScriptOnDocumentStart) location.href = m.appPath;
+  }
+
+  function connect() {
+    ws = new WebSocket('ws://localhost:8081');
+    ws.onopen = function () { send(EV.GetModules); };
+    ws.onerror = function () { msg.textContent = 'TizenBrew service not reachable.'; };
+    ws.onmessage = function (e) {
+      var d;
+      try { d = JSON.parse(e.data); } catch (err) { return; }
+      if (d.type === EV.GetModules) {
+        if (d.payload === null) return setTimeout(function () { send(EV.GetModules); }, 500);
+        modules = d.payload;
+        render();
+        send(EV.Ready);
+      } else if (d.type === EV.LaunchModule) {
+        // evaluateScriptOnDocumentStart modules: service tells us when to navigate.
+        for (var i = 0; i < modules.length; i++) {
+          if (modules[i].name === d.payload || modules[i].fullName === d.payload) {
+            location.href = modules[i].appPath;
+          }
+        }
+      } else if (d.type === EV.Error) {
+        msg.style.display = '';
+        msg.textContent = String(d.payload);
+      }
+    };
+  }
+
+  document.addEventListener('keydown', function (e) {
+    switch (e.keyCode) {
+      case KEY.LEFT: setFocus(focus - 1); break;
+      case KEY.RIGHT: setFocus(focus + 1); break;
+      case KEY.ENTER: if (modules[focus]) launch(modules[focus]); break;
+      case KEY.RED: location.reload(); break;
+      case KEY.BACK:
+        try { tizen.application.getCurrentApplication().exit(); } catch (err) {}
+        break;
+      default: return;
+    }
+    e.preventDefault();
+  });
+
+  connect();
+})();
+</script>
+</body>
+</html>

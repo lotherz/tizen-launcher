@@ -1,0 +1,19 @@
+{
+  "name": "tizen-launcher",
+  "appName": "Launcher",
+  "version": "0.1.0",
+  "description": "Clean, fast, remote-first home screen for TizenBrew.",
+  "packageType": "app",
+  "appPath": "app/index.html",
+  "keys": [
+    "ColorF0Red",
+    "ColorF1Green",
+    "ColorF2Yellow",
+    "ColorF3Blue"
+  ],
+  "author": "Kyle Lotherington",
+  "repository": {
+    "url": "https://github.com/lotherz/tizen-launcher"
+  },
+  "license": "MIT"
+}
